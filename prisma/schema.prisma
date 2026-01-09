@@ -1,0 +1,1934 @@
+// Prisma Schema for SCB - Sai Computer Bazar
+// Database: MySQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Role {
+  ADMIN
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ProductVisibility {
+  PUBLIC
+  HIDDEN
+}
+
+// Badge enum removed - now using Badge model for dynamic badges
+
+// ============================================
+// USER MODEL
+// ============================================
+
+model User {
+  id             String     @id @default(cuid())
+  role           Role       @default(CUSTOMER)
+  name           String
+  email          String     @unique
+  mobile         String     @default("")
+  passwordHash   String
+  status         UserStatus @default(ACTIVE)
+  avatar         String?
+  lastLoginAt    DateTime?
+  emailVerified  Boolean    @default(false)
+  mobileVerified Boolean    @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  addresses     Address[]
+  reviews       Review[]
+  helpfulVotes  ReviewHelpful[]
+  cart          Cart?
+  wishlist      Wishlist?
+  orders        Order[]
+
+  // Indexes for fast search
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@index([role, status])
+  @@map("users")
+}
+
+// ============================================
+// ADDRESS MODEL
+// ============================================
+
+model Address {
+  id           String  @id @default(cuid())
+  userId       String
+  label        String  @default("Home") // Home, Office, Other
+  fullName     String
+  mobile       String
+  addressLine1 String
+  addressLine2 String?
+  landmark     String?
+  city         String
+  state        String
+  pincode      String
+  country      String  @default("India")
+  isDefault    Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Indexes for filtering/shipping
+  @@index([userId])
+  @@index([pincode])
+  @@index([city])
+  @@index([state])
+  @@index([userId, isDefault])
+  @@map("addresses")
+}
+
+// ============================================
+// CATEGORY MODEL (with hierarchy & SEO)
+// ============================================
+
+model Category {
+  id           String  @id @default(cuid())
+  name         String
+  slug         String  @unique
+  description  String? @db.Text
+  imageUrl     String?
+  imageAlt     String?
+  displayOrder Int     @default(0)
+  isVisible    Boolean @default(true)
+  isFeatured   Boolean @default(false)
+
+  // Hierarchy (self-referencing)
+  parentId String?
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryHierarchy")
+
+  // SEO Fields
+  seoTitle           String? @db.VarChar(70)
+  seoDescription     String? @db.VarChar(170)
+  seoKeywords        String? @db.VarChar(255)
+  canonicalUrl       String?
+  robotsIndex        Boolean @default(true)
+  robotsFollow       Boolean @default(true)
+  ogTitle            String? @db.VarChar(70)
+  ogDescription      String? @db.VarChar(200)
+  ogImage            String?
+  twitterTitle       String? @db.VarChar(70)
+  twitterDescription String? @db.VarChar(200)
+  twitterImage       String?
+  jsonLd             Json?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  products       Product[]
+  advertisements Advertisement[]
+
+  // Indexes
+  @@index([slug])
+  @@index([parentId])
+  @@index([isVisible])
+  @@index([isFeatured])
+  @@index([displayOrder])
+  @@index([isVisible, displayOrder])
+  @@map("categories")
+}
+
+// ============================================
+// PRODUCT MODEL (with SEO)
+// ============================================
+
+model Product {
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  shortDescription String?           @db.VarChar(200)
+  description      String?           @db.Text
+  sku              String?           @unique
+  price            Decimal           @db.Decimal(10, 2)
+  compareAtPrice   Decimal?          @db.Decimal(10, 2)
+  discountPrice    Decimal?          @db.Decimal(10, 2)
+  stockQuantity    Int               @default(0)
+  isInStock        Boolean           @default(true)
+  status           ProductStatus     @default(DRAFT)
+  visibility       ProductVisibility @default(PUBLIC)
+  isFeatured       Boolean           @default(false)
+
+  // Coming Soon feature
+  isComingSoon Boolean   @default(false)
+  launchDate   DateTime?
+
+  // Category relation
+  primaryCategoryId String
+  primaryCategory   Category @relation(fields: [primaryCategoryId], references: [id], onDelete: Restrict)
+
+  // Product details
+  brand      String?
+  model      String?
+  ratingAvg  Decimal? @db.Decimal(2, 1)
+  ratingCount Int      @default(0)
+
+  // Has variations
+  hasVariations Boolean @default(false)
+
+  // SEO Fields
+  seoTitle           String? @db.VarChar(70)
+  seoDescription     String? @db.VarChar(170)
+  seoKeywords        String? @db.VarChar(255)
+  canonicalUrl       String?
+  robotsIndex        Boolean @default(true)
+  robotsFollow       Boolean @default(true)
+  ogTitle            String? @db.VarChar(70)
+  ogDescription      String? @db.VarChar(200)
+  ogImage            String?
+  twitterTitle       String? @db.VarChar(70)
+  twitterDescription String? @db.VarChar(200)
+  twitterImage       String?
+  jsonLd             Json?
+
+  // SEO Score (auto-calculated)
+  seoScore Int @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  images            ProductImage[]
+  tags              ProductTag[]
+  badges            ProductBadge[]
+  specs             ProductSpec[]
+  variations        ProductVariation[]
+  prebuiltPCBundles PrebuiltPCComponent[]
+  reviews           Review[]
+  cartItems         CartItem[]
+  wishlistItems     WishlistItem[]
+  orderItems        OrderItem[]
+  coupons           CouponProduct[]
+  socialVideos      SocialVideo[]
+  advertisements    Advertisement[]
+
+  // Indexes for fast filtering and SEO queries
+  @@index([slug])
+  @@index([sku])
+  @@index([primaryCategoryId])
+  @@index([status])
+  @@index([visibility])
+  @@index([price])
+  @@index([brand])
+  @@index([isFeatured])
+  @@index([isInStock])
+  @@index([isComingSoon])
+  @@index([status, visibility])
+  @@index([status, visibility, isInStock])
+  @@index([primaryCategoryId, status, visibility])
+  @@index([brand, status, visibility])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@map("products")
+}
+
+// ============================================
+// PRODUCT IMAGE MODEL (media)
+// ============================================
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  url       String
+  alt       String?
+  sortOrder Int     @default(0)
+  isPrimary Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([productId])
+  @@index([productId, isPrimary])
+  @@index([productId, sortOrder])
+  @@map("product_images")
+}
+
+// ============================================
+// TAG MODEL
+// ============================================
+
+model Tag {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  products    ProductTag[]
+  prebuiltPCs PrebuiltPCTag[]
+
+  // Indexes
+  @@index([slug])
+  @@index([name])
+  @@map("tags")
+}
+
+// ============================================
+// BADGE MODEL (dynamic badges)
+// ============================================
+
+model Badge {
+  id    String @id @default(cuid())
+  name  String
+  slug  String @unique
+  color String @default("#6366f1") // Hex color for display
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  products     ProductBadge[]
+  prebuiltPCs  PrebuiltPCBadge[]
+  socialVideos SocialVideoBadge[]
+
+  // Indexes
+  @@index([slug])
+  @@index([name])
+  @@map("badges")
+}
+
+// ============================================
+// PC TYPE MODEL (Gaming, Office, Workstation, etc.)
+// ============================================
+
+model PCType {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String? @db.VarChar(255)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  prebuiltPCs PrebuiltPC[]
+
+  // Indexes
+  @@index([slug])
+  @@index([name])
+  @@map("pc_types")
+}
+
+// ============================================
+// PRODUCT TAG (Many-to-Many junction)
+// ============================================
+
+model ProductTag {
+  productId String
+  tagId     String
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  // Composite primary key
+  @@id([productId, tagId])
+  @@index([productId])
+  @@index([tagId])
+  @@map("product_tags")
+}
+
+// ============================================
+// PRODUCT BADGE (Many-to-Many junction)
+// ============================================
+
+model ProductBadge {
+  productId String
+  badgeId   String
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  badge   Badge   @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  // Composite primary key
+  @@id([productId, badgeId])
+  @@index([productId])
+  @@index([badgeId])
+  @@map("product_badges")
+}
+
+// ============================================
+// PRODUCT SPEC MODEL (key/value attributes)
+// ============================================
+
+model ProductSpec {
+  id        String @id @default(cuid())
+  productId String
+  key       String
+  value     String
+  sortOrder Int    @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([productId])
+  @@index([productId, sortOrder])
+  @@index([key])
+  @@map("product_specs")
+}
+
+// ============================================
+// PREBUILT PC MODEL (Bundle of products)
+// ============================================
+
+model PrebuiltPC {
+  id               String            @id @default(cuid())
+  name             String
+  slug             String            @unique
+  shortDescription String?           @db.VarChar(300)
+  description      String?           @db.Text
+  specifications   String?           @db.Text // Rich text for specs
+
+  // Pricing
+  totalPrice     Decimal  @db.Decimal(10, 2) // Sum of all products (calculated)
+  sellingPrice   Decimal  @db.Decimal(10, 2) // Actual selling price (discounted)
+  compareAtPrice Decimal? @db.Decimal(10, 2) // Strike-through price
+
+  // Images
+  primaryImage   String?
+  galleryImages  Json?    // Array of image URLs
+
+  // Status
+  status     ProductStatus     @default(DRAFT)
+  visibility ProductVisibility @default(PUBLIC)
+  isFeatured Boolean           @default(false)
+  isInStock  Boolean           @default(true)
+
+  // Coming Soon feature
+  isComingSoon Boolean   @default(false)
+  launchDate   DateTime?
+
+  // PC Type/Category (now linked to PCType model)
+  pcTypeId   String?
+  pcType     PCType?  @relation(fields: [pcTypeId], references: [id], onDelete: SetNull)
+  targetUse  String?  // For Gaming, Video Editing, Programming, etc.
+
+  // SEO Fields
+  seoTitle           String? @db.VarChar(70)
+  seoDescription     String? @db.VarChar(170)
+  seoKeywords        String? @db.VarChar(255)
+  canonicalUrl       String?
+  robotsIndex        Boolean @default(true)
+  robotsFollow       Boolean @default(true)
+  ogTitle            String? @db.VarChar(70)
+  ogDescription      String? @db.VarChar(200)
+  ogImage            String?
+  twitterTitle       String? @db.VarChar(70)
+  twitterDescription String? @db.VarChar(200)
+  twitterImage       String?
+  jsonLd             Json?
+
+  // SEO Score (auto-calculated)
+  seoScore Int @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  components     PrebuiltPCComponent[]
+  tags           PrebuiltPCTag[]
+  badges         PrebuiltPCBadge[]
+  reviews        Review[]
+  cartItems      CartItem[]
+  wishlistItems  WishlistItem[]
+  orderItems     OrderItem[]
+  coupons        CouponPrebuiltPC[]
+  socialVideos   SocialVideo[]
+  advertisements Advertisement[]
+
+  // Indexes
+  @@index([slug])
+  @@index([status])
+  @@index([visibility])
+  @@index([isFeatured])
+  @@index([pcTypeId])
+  @@index([status, visibility])
+  @@index([createdAt])
+  @@map("prebuilt_pcs")
+}
+
+// ============================================
+// PREBUILT PC COMPONENT (Products in bundle)
+// ============================================
+
+model PrebuiltPCComponent {
+  id           String @id @default(cuid())
+  prebuiltPCId String
+  productId    String
+  quantity     Int    @default(1)
+  componentType String // CPU, GPU, RAM, Storage, Monitor, Keyboard, Mouse, etc.
+  sortOrder    Int    @default(0)
+
+  // Optional price override for this component in bundle
+  priceOverride Decimal? @db.Decimal(10, 2)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  prebuiltPC PrebuiltPC @relation(fields: [prebuiltPCId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  // Indexes
+  @@unique([prebuiltPCId, productId])
+  @@index([prebuiltPCId])
+  @@index([productId])
+  @@index([componentType])
+  @@map("prebuilt_pc_components")
+}
+
+// ============================================
+// PREBUILT PC TAG (Many-to-Many junction)
+// ============================================
+
+model PrebuiltPCTag {
+  prebuiltPCId String
+  tagId        String
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  prebuiltPC PrebuiltPC @relation(fields: [prebuiltPCId], references: [id], onDelete: Cascade)
+  tag        Tag        @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  // Composite primary key
+  @@id([prebuiltPCId, tagId])
+  @@index([prebuiltPCId])
+  @@index([tagId])
+  @@map("prebuilt_pc_tags")
+}
+
+// ============================================
+// PREBUILT PC BADGE (Many-to-Many junction)
+// ============================================
+
+model PrebuiltPCBadge {
+  prebuiltPCId String
+  badgeId      String
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  prebuiltPC PrebuiltPC @relation(fields: [prebuiltPCId], references: [id], onDelete: Cascade)
+  badge      Badge      @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  // Composite primary key
+  @@id([prebuiltPCId, badgeId])
+  @@index([prebuiltPCId])
+  @@index([badgeId])
+  @@map("prebuilt_pc_badges")
+}
+
+// ============================================
+// REVIEW TAG MODEL (Best, Worst, Helpful, etc.)
+// ============================================
+
+model ReviewTag {
+  id    String @id @default(cuid())
+  name  String @unique // Best, Worst, Helpful, Value for Money, etc.
+  slug  String @unique
+  color String @default("#6366f1") // Hex color for display
+  icon  String? // Optional icon name
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  reviews ReviewTagAssignment[]
+
+  // Indexes
+  @@index([slug])
+  @@index([name])
+  @@map("review_tags")
+}
+
+// ============================================
+// REVIEW MODEL (for both Product and PrebuiltPC)
+// ============================================
+
+model Review {
+  id     String @id @default(cuid())
+
+  // Polymorphic relation - either productId OR prebuiltPCId
+  productId    String?
+  product      Product?    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  prebuiltPCId String?
+  prebuiltPC   PrebuiltPC? @relation(fields: [prebuiltPCId], references: [id], onDelete: Cascade)
+
+  // User who created the review (for auth checks)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Review content
+  title       String  @db.VarChar(200)
+  description String  @db.Text
+  rating      Int     @default(5) // 1-5 stars
+
+  // Reviewer info
+  reviewerName  String @db.VarChar(100)
+  reviewerEmail String? @db.VarChar(255) // Optional for verification
+
+  // Engagement
+  helpfulCount Int @default(0)
+
+  // Moderation
+  isApproved Boolean @default(false)
+  isVerified Boolean @default(false) // Verified purchase
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  images        ReviewImage[]
+  tags          ReviewTagAssignment[]
+  helpfulVotes  ReviewHelpful[]
+
+  // Indexes
+  @@index([productId])
+  @@index([prebuiltPCId])
+  @@index([userId])
+  @@index([rating])
+  @@index([isApproved])
+  @@index([createdAt])
+  @@index([productId, isApproved])
+  @@index([prebuiltPCId, isApproved])
+  @@map("reviews")
+}
+
+// ============================================
+// REVIEW HELPFUL MODEL (Track who voted helpful)
+// ============================================
+
+model ReviewHelpful {
+  reviewId String
+  userId   String
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Composite primary key - one vote per user per review
+  @@id([reviewId, userId])
+  @@index([reviewId])
+  @@index([userId])
+  @@map("review_helpful_votes")
+}
+
+// ============================================
+// REVIEW IMAGE MODEL (1-5 images per review)
+// ============================================
+
+model ReviewImage {
+  id       String @id @default(cuid())
+  reviewId String
+  url      String @db.LongText
+  alt      String?
+  sortOrder Int @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([reviewId])
+  @@index([reviewId, sortOrder])
+  @@map("review_images")
+}
+
+// ============================================
+// REVIEW TAG ASSIGNMENT (Many-to-Many junction)
+// ============================================
+
+model ReviewTagAssignment {
+  reviewId    String
+  reviewTagId String
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  review    Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  reviewTag ReviewTag @relation(fields: [reviewTagId], references: [id], onDelete: Cascade)
+
+  // Composite primary key
+  @@id([reviewId, reviewTagId])
+  @@index([reviewId])
+  @@index([reviewTagId])
+  @@map("review_tag_assignments")
+}
+
+// ============================================
+// PRODUCT VARIATION MODEL (size, color, etc.)
+// ============================================
+
+model ProductVariation {
+  id        String @id @default(cuid())
+  productId String
+
+  // Variation details
+  name           String // e.g., "8GB RAM", "Black", "256GB"
+  type           String // e.g., "RAM", "Color", "Storage"
+  sku            String? @unique
+  price          Decimal?  @db.Decimal(10, 2) // Override price
+  compareAtPrice Decimal?  @db.Decimal(10, 2)
+  stockQuantity  Int       @default(0)
+  isInStock      Boolean   @default(true)
+  imageUrl       String?   // Variant-specific image
+  sortOrder      Int       @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems CartItem[]
+
+  // Indexes
+  @@index([productId])
+  @@index([type])
+  @@index([productId, type])
+  @@index([productId, sortOrder])
+  @@map("product_variations")
+}
+
+// ============================================
+// CART MODEL
+// ============================================
+
+model Cart {
+  id        String   @id @default(cuid())
+  userId    String?  // Optional - for logged in users
+  sessionId String?  // For guest users
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  // Indexes
+  @@unique([userId])
+  @@index([sessionId])
+  @@index([updatedAt])
+  @@map("carts")
+}
+
+// ============================================
+// CART ITEM MODEL
+// ============================================
+
+model CartItem {
+  id       String @id @default(cuid())
+  cartId   String
+  quantity Int    @default(1)
+
+  // Either product or prebuiltPC (polymorphic)
+  productId    String?
+  prebuiltPCId String?
+
+  // Selected variation (if applicable)
+  variationId  String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  cart       Cart              @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product    Product?          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  prebuiltPC PrebuiltPC?       @relation(fields: [prebuiltPCId], references: [id], onDelete: Cascade)
+  variation  ProductVariation? @relation(fields: [variationId], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@unique([cartId, productId, variationId])
+  @@unique([cartId, prebuiltPCId])
+  @@index([cartId])
+  @@index([productId])
+  @@index([prebuiltPCId])
+  @@map("cart_items")
+}
+
+// ============================================
+// WISHLIST MODEL
+// ============================================
+
+model Wishlist {
+  id        String   @id @default(cuid())
+  userId    String?  // Optional - for logged in users
+  sessionId String?  // For guest users
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user  User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items WishlistItem[]
+
+  // Indexes
+  @@unique([userId])
+  @@index([sessionId])
+  @@index([updatedAt])
+  @@map("wishlists")
+}
+
+// ============================================
+// WISHLIST ITEM MODEL
+// ============================================
+
+model WishlistItem {
+  id         String @id @default(cuid())
+  wishlistId String
+
+  // Either product or prebuiltPC (polymorphic)
+  productId    String?
+  prebuiltPCId String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  wishlist   Wishlist    @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  product    Product?    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  prebuiltPC PrebuiltPC? @relation(fields: [prebuiltPCId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@unique([wishlistId, productId])
+  @@unique([wishlistId, prebuiltPCId])
+  @@index([wishlistId])
+  @@index([productId])
+  @@index([prebuiltPCId])
+  @@map("wishlist_items")
+}
+
+// ============================================
+// ORDER STATUS ENUM
+// ============================================
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  RETURNED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  COD_PENDING
+}
+
+enum PaymentMethod {
+  COD
+  RAZORPAY
+  UPI
+  CARD
+  NETBANKING
+  WALLET
+}
+
+// ============================================
+// ORDER MODEL
+// ============================================
+
+model Order {
+  id          String        @id @default(cuid())
+  orderNumber String        @unique // Human readable order number
+  userId      String?
+
+  // Order Status
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentMethod PaymentMethod @default(COD)
+
+  // Pricing
+  subtotal       Decimal @db.Decimal(10, 2)
+  discount       Decimal @default(0) @db.Decimal(10, 2)
+  shippingCharge Decimal @default(0) @db.Decimal(10, 2)
+  tax            Decimal @default(0) @db.Decimal(10, 2)
+  total          Decimal @db.Decimal(10, 2)
+
+  // Coupon
+  couponCode    String?
+  couponDiscount Decimal @default(0) @db.Decimal(10, 2)
+
+  // Shipping Address (stored as snapshot)
+  shippingName     String
+  shippingMobile   String
+  shippingAddress1 String
+  shippingAddress2 String?
+  shippingLandmark String?
+  shippingCity     String
+  shippingState    String
+  shippingPincode  String
+  shippingCountry  String @default("India")
+
+  // Billing Address (optional, same as shipping if null)
+  billingName     String?
+  billingMobile   String?
+  billingAddress1 String?
+  billingAddress2 String?
+  billingCity     String?
+  billingState    String?
+  billingPincode  String?
+  billingCountry  String?
+
+  // Payment Details (Razorpay)
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+
+  // Shiprocket Details
+  shiprocketOrderId   String?
+  shiprocketShipmentId String?
+  awbNumber           String?
+  courierName         String?
+  trackingUrl         String?
+
+  // Timestamps
+  paidAt      DateTime?
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Customer notes
+  customerNotes String? @db.Text
+  adminNotes    String? @db.Text
+
+  // Relations
+  user     User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items    OrderItem[]
+  timeline OrderTimeline[]
+
+  // Indexes
+  @@index([orderNumber])
+  @@index([userId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([userId, status])
+  @@index([shippingPincode])
+  @@map("orders")
+}
+
+// ============================================
+// ORDER ITEM MODEL
+// ============================================
+
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+
+  // Either product or prebuiltPC (polymorphic)
+  productId    String?
+  prebuiltPCId String?
+  variationId  String?
+
+  // Snapshot of item at time of order
+  name          String
+  sku           String?
+  image         String?
+  price         Decimal @db.Decimal(10, 2)
+  quantity      Int     @default(1)
+  total         Decimal @db.Decimal(10, 2)
+  variationName String? // e.g., "16GB RAM, Black"
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  order      Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product    Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  prebuiltPC PrebuiltPC? @relation(fields: [prebuiltPCId], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@index([orderId])
+  @@index([productId])
+  @@index([prebuiltPCId])
+  @@map("order_items")
+}
+
+// ============================================
+// ORDER TIMELINE MODEL (for tracking history)
+// ============================================
+
+model OrderTimeline {
+  id      String @id @default(cuid())
+  orderId String
+
+  status      OrderStatus
+  title       String
+  description String?
+  location    String? // For shipping updates
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([orderId])
+  @@index([orderId, createdAt])
+  @@map("order_timeline")
+}
+
+// ============================================
+// COUPON APPLY ON ENUM
+// ============================================
+
+enum CouponApplyOn {
+  PRODUCT
+  PREBUILT_PC
+  BOTH
+}
+
+// ============================================
+// COUPON MODEL
+// ============================================
+
+model Coupon {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String   // Coupon name for admin reference
+  title       String?  // Display title for customers
+  description String?  @db.Text
+  image       String?  // Coupon banner/image URL
+
+  // Discount
+  discountType  String  @default("percentage") // percentage, fixed
+  discountValue Decimal @db.Decimal(10, 2)
+
+  // Limits
+  minOrderAmount  Decimal? @db.Decimal(10, 2)  // Minimum order amount required
+  maxDiscount     Decimal? @db.Decimal(10, 2)  // Maximum discount cap (for percentage)
+  usageLimit      Int?     // Total uses allowed
+  usageCount      Int      @default(0)
+  perUserLimit    Int      @default(1)
+
+  // Apply On Settings
+  applyOn         CouponApplyOn @default(BOTH) // Apply on products, prebuilt PCs, or both
+  applyToAll      Boolean       @default(true) // If false, only applies to specific items
+
+  // Validity
+  startDate DateTime?
+  endDate   DateTime?
+  isActive  Boolean   @default(true)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations - Specific products/prebuilt PCs this coupon applies to
+  products       CouponProduct[]
+  prebuiltPCs    CouponPrebuiltPC[]
+  advertisements Advertisement[]
+
+  // Indexes
+  @@index([code])
+  @@index([isActive])
+  @@index([startDate, endDate])
+  @@index([applyOn])
+  @@map("coupons")
+}
+
+// ============================================
+// COUPON PRODUCT (Many-to-Many junction)
+// ============================================
+
+model CouponProduct {
+  couponId  String
+  productId String
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  coupon  Coupon  @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Composite primary key
+  @@id([couponId, productId])
+  @@index([couponId])
+  @@index([productId])
+  @@map("coupon_products")
+}
+
+// ============================================
+// COUPON PREBUILT PC (Many-to-Many junction)
+// ============================================
+
+model CouponPrebuiltPC {
+  couponId     String
+  prebuiltPCId String
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  coupon     Coupon     @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  prebuiltPC PrebuiltPC @relation(fields: [prebuiltPCId], references: [id], onDelete: Cascade)
+
+  // Composite primary key
+  @@id([couponId, prebuiltPCId])
+  @@index([couponId])
+  @@index([prebuiltPCId])
+  @@map("coupon_prebuilt_pcs")
+}
+
+// ============================================
+// SITE SETTINGS MODEL (API Keys, Configurations)
+// ============================================
+
+model SiteSetting {
+  id    String @id @default(cuid())
+  key   String @unique  // e.g., "razorpay_key_id", "shiprocket_email"
+  value String @db.Text // Encrypted/plain value
+  group String          // e.g., "razorpay", "shiprocket", "smtp", "general"
+  label String?         // Human readable label
+  type  String @default("text") // text, password, email, number, boolean, json
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes
+  @@index([group])
+  @@index([key])
+  @@map("site_settings")
+}
+
+// ============================================
+// PAGE SEO MODEL (Static Pages SEO Management)
+// ============================================
+
+model PageSEO {
+  id        String @id @default(cuid())
+
+  // Page identification
+  pageKey   String @unique  // e.g., "home", "products", "prebuilt-pcs", "cart", "checkout"
+  pagePath  String          // e.g., "/", "/products", "/prebuilt-pcs"
+  pageName  String          // Human readable: "Homepage", "Products", etc.
+
+  // SEO Fields
+  seoTitle           String? @db.VarChar(70)
+  seoDescription     String? @db.VarChar(170)
+  seoKeywords        String? @db.Text
+  canonicalUrl       String?
+
+  // Robots
+  robotsIndex        Boolean @default(true)
+  robotsFollow       Boolean @default(true)
+
+  // Open Graph
+  ogTitle            String? @db.VarChar(70)
+  ogDescription      String? @db.VarChar(200)
+  ogImage            String?
+  ogType             String  @default("website")
+
+  // Twitter Card
+  twitterTitle       String? @db.VarChar(70)
+  twitterDescription String? @db.VarChar(200)
+  twitterImage       String?
+  twitterCard        String  @default("summary_large_image")
+
+  // Schema.org JSON-LD
+  jsonLd             Json?
+  hasSchemaMarkup    Boolean @default(false)
+
+  // Page status
+  isActive           Boolean @default(true)
+  priority           Int     @default(0)  // For sitemap priority
+  changeFrequency    String  @default("weekly") // For sitemap
+
+  // SEO Score (calculated)
+  seoScore           Int     @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes
+  @@index([pageKey])
+  @@index([isActive])
+  @@index([seoScore])
+  @@map("page_seo")
+}
+
+// ============================================
+// INQUIRY STATUS ENUM
+// ============================================
+
+enum InquiryStatus {
+  NEW
+  PENDING
+  CONTACTED
+  FOLLOW_UP
+  INTERESTED
+  CONVERTED
+  NOT_INTERESTED
+  CANCELLED
+}
+
+enum InquiryType {
+  MANUAL        // Manually added inquiries from various sources
+  MODAL_WEB     // From website popup/modal
+  CHAT_WEB      // From website chat widget
+  AD_WEB        // From ad campaigns (Google, Facebook, etc.)
+  SOCIAL_MEDIA  // From social media DMs
+  PHONE_CALL    // From phone calls
+  WALK_IN       // Walk-in customers
+}
+
+// ============================================
+// INQUIRY MODEL
+// ============================================
+
+model Inquiry {
+  id     String @id @default(cuid())
+
+  // Inquiry Source/Type
+  type   InquiryType @default(MANUAL)
+
+  // Customer Info
+  name   String
+  mobile String
+  email  String?
+
+  // Inquiry Details
+  requirement String? @db.Text  // What they need/looking for
+  budget      String?           // Budget range if mentioned
+
+  // Notes and Status
+  note   String? @db.Text       // Internal notes
+  status InquiryStatus @default(NEW)
+
+  // Source tracking
+  source      String?  // Specific source (e.g., "Facebook Ad - Gaming PC")
+  campaignId  String?  // For ad tracking
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+
+  // Assignment
+  assignedTo  String?  // Admin user assigned to handle this inquiry
+
+  // Follow-up
+  followUpDate DateTime?
+  lastContactedAt DateTime?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes
+  @@index([type])
+  @@index([status])
+  @@index([mobile])
+  @@index([email])
+  @@index([createdAt])
+  @@index([type, status])
+  @@index([followUpDate])
+  @@map("inquiries")
+}
+
+// ============================================
+// BLOG STATUS ENUM
+// ============================================
+
+enum BlogStatus {
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+  ARCHIVED
+}
+
+// ============================================
+// BLOG CATEGORY MODEL
+// ============================================
+
+model BlogCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?  @db.Text
+  image       String?
+  color       String?  // For UI display
+
+  // SEO
+  seoTitle       String? @db.VarChar(70)
+  seoDescription String? @db.VarChar(170)
+
+  // Display
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  blogs Blog[]
+
+  // Indexes
+  @@index([slug])
+  @@index([isActive])
+  @@index([sortOrder])
+  @@map("blog_categories")
+}
+
+// ============================================
+// BLOG MODEL (Full SEO Support)
+// ============================================
+
+model Blog {
+  id          String     @id @default(cuid())
+
+  // Basic Info
+  title       String
+  slug        String     @unique
+  excerpt     String?    @db.Text  // Short summary for cards
+  content     String     @db.LongText  // Rich HTML content
+
+  // Media
+  featuredImage    String?
+  featuredImageAlt String?
+  ogImage          String?  // Open Graph image (different from featured)
+
+  // Author
+  authorId    String?
+  authorName  String     @default("Admin")
+  authorImage String?
+  authorBio   String?    @db.Text
+
+  // Category & Tags
+  categoryId  String?
+  tags        BlogTag[]
+
+  // Status & Visibility
+  status      BlogStatus @default(DRAFT)
+  isFeatured  Boolean    @default(false)
+  allowComments Boolean  @default(true)
+
+  // Publishing
+  publishedAt DateTime?
+  scheduledAt DateTime?
+
+  // Reading
+  readingTime Int        @default(0)  // in minutes
+  viewCount   Int        @default(0)
+
+  // SEO Fields
+  seoTitle         String?  @db.VarChar(70)
+  seoDescription   String?  @db.VarChar(170)
+  seoKeywords      String?  @db.Text
+  canonicalUrl     String?
+
+  // Robots
+  robotsIndex      Boolean  @default(true)
+  robotsFollow     Boolean  @default(true)
+
+  // Open Graph
+  ogTitle          String?  @db.VarChar(70)
+  ogDescription    String?  @db.VarChar(200)
+
+  // Twitter Card
+  twitterTitle     String?  @db.VarChar(70)
+  twitterDescription String? @db.VarChar(200)
+
+  // Schema.org
+  schemaType       String   @default("Article")  // Article, BlogPosting, NewsArticle
+  jsonLd           Json?
+
+  // Internal
+  internalNotes    String?  @db.Text
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  category       BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  advertisements Advertisement[]
+
+  // Indexes
+  @@index([slug])
+  @@index([status])
+  @@index([categoryId])
+  @@index([isFeatured])
+  @@index([publishedAt])
+  @@index([status, publishedAt])
+  @@index([viewCount])
+  @@map("blogs")
+}
+
+// ============================================
+// BLOG TAG MODEL
+// ============================================
+
+model BlogTag {
+  id     String @id @default(cuid())
+  name   String
+  slug   String
+  blogId String
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  blog Blog @relation(fields: [blogId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@unique([blogId, slug])
+  @@index([blogId])
+  @@index([slug])
+  @@map("blog_tags")
+}
+
+// ============================================
+// ANALYTICS - PAGE VIEW MODEL
+// ============================================
+
+model PageView {
+  id        String   @id @default(cuid())
+
+  // Session tracking
+  sessionId String   // Unique session identifier (UUID)
+  visitorId String?  // Persistent visitor ID (stored in localStorage)
+  userId    String?  // If logged in user
+
+  // Page info
+  pagePath  String   // e.g., "/products", "/product/laptop-xyz"
+  pageTitle String?  // Document title
+  pageType  String   // "home", "product", "category", "prebuilt-pc", "cart", "checkout", etc.
+
+  // Reference data (for product/category/etc pages)
+  referenceId   String?  // Product ID, Category ID, etc.
+  referenceName String?  // Product name, Category name, etc.
+
+  // Traffic source
+  referrer      String?  @db.Text  // Full referrer URL
+  referrerDomain String? // Extracted domain
+  utmSource     String?
+  utmMedium     String?
+  utmCampaign   String?
+  utmTerm       String?
+  utmContent    String?
+
+  // Device info
+  deviceType    String?  // "desktop", "mobile", "tablet"
+  browser       String?
+  os            String?
+  screenWidth   Int?
+  screenHeight  Int?
+
+  // Location (from IP - can be added later)
+  country       String?
+  city          String?
+
+  // Engagement metrics
+  dwellTime     Int      @default(0)  // Time in seconds spent on page
+  scrollDepth   Int      @default(0)  // Max scroll depth percentage (0-100)
+  interactions  Int      @default(0)  // Number of interactions (clicks, etc.)
+  isBounce      Boolean  @default(true) // True if left without interaction
+  isExit        Boolean  @default(false) // True if this was the last page in session
+
+  // Timestamps
+  enteredAt     DateTime @default(now())
+  exitedAt      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Indexes for fast queries
+  @@index([sessionId])
+  @@index([visitorId])
+  @@index([pagePath])
+  @@index([pageType])
+  @@index([referenceId])
+  @@index([createdAt])
+  @@index([enteredAt])
+  @@index([deviceType])
+  @@index([isBounce])
+  @@index([pagePath, createdAt])
+  @@index([pageType, createdAt])
+  @@map("page_views")
+}
+
+// ============================================
+// SOCIAL VIDEO ENUMS
+// ============================================
+
+enum VideoType {
+  SHORT  // Reels, Shorts, TikTok-style
+  VIDEO  // Regular videos
+}
+
+enum VideoPlatform {
+  YOUTUBE
+  INSTAGRAM
+  FACEBOOK
+}
+
+enum VideoStatus {
+  DRAFT
+  PUBLISHED
+}
+
+// ============================================
+// SOCIAL VIDEO MODEL
+// ============================================
+
+model SocialVideo {
+  id          String   @id @default(cuid())
+
+  // Basic Info
+  title       String
+  description String?  @db.Text
+  videoUrl    String   // YouTube, Instagram, Facebook video link
+
+  // Video Type & Platform
+  videoType   VideoType     @default(VIDEO)
+  platform    VideoPlatform @default(YOUTUBE)
+
+  // Thumbnail (auto-extracted or custom)
+  thumbnailUrl String?
+
+  // Status
+  status      VideoStatus @default(DRAFT)
+  isFeatured  Boolean     @default(false)
+
+  // Linked Product/Prebuilt PC (optional)
+  productId    String?
+  product      Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  prebuiltPCId String?
+  prebuiltPC   PrebuiltPC? @relation(fields: [prebuiltPCId], references: [id], onDelete: SetNull)
+
+  // Engagement metrics (can be updated manually or via API)
+  viewCount    Int @default(0)
+  likeCount    Int @default(0)
+
+  // SEO Fields (auto-generated)
+  seoTitle       String? @db.VarChar(70)
+  seoDescription String? @db.VarChar(170)
+  seoKeywords    String? @db.VarChar(255)
+
+  // Display order
+  sortOrder    Int @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  badges         SocialVideoBadge[]
+  advertisements Advertisement[]
+
+  // Indexes
+  @@index([status])
+  @@index([platform])
+  @@index([videoType])
+  @@index([productId])
+  @@index([prebuiltPCId])
+  @@index([isFeatured])
+  @@index([sortOrder])
+  @@index([createdAt])
+  @@map("social_videos")
+}
+
+// ============================================
+// SOCIAL VIDEO BADGE (Many-to-Many junction)
+// ============================================
+
+model SocialVideoBadge {
+  socialVideoId String
+  badgeId       String
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  // Relations
+  socialVideo SocialVideo @relation(fields: [socialVideoId], references: [id], onDelete: Cascade)
+  badge       Badge       @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  // Composite primary key
+  @@id([socialVideoId, badgeId])
+  @@index([socialVideoId])
+  @@index([badgeId])
+  @@map("social_video_badges")
+}
+
+// ============================================
+// ANALYTICS - DAILY SUMMARY MODEL
+// ============================================
+
+model AnalyticsDailySummary {
+  id        String   @id @default(cuid())
+
+  // Date (stored as date without time for easy grouping)
+  date      DateTime @db.Date
+
+  // Page info (aggregated by page or overall)
+  pagePath  String?  // Null for overall daily summary
+  pageType  String?
+
+  // Traffic metrics
+  pageViews       Int @default(0)
+  uniqueVisitors  Int @default(0)
+  uniqueSessions  Int @default(0)
+
+  // Engagement metrics
+  totalDwellTime    Int @default(0)  // Total seconds across all views
+  avgDwellTime      Int @default(0)  // Average seconds per view
+  totalBounces      Int @default(0)
+  bounceRate        Float @default(0) // Percentage
+  avgScrollDepth    Float @default(0) // Average scroll percentage
+  totalInteractions Int @default(0)
+
+  // Device breakdown
+  desktopViews Int @default(0)
+  mobileViews  Int @default(0)
+  tabletViews  Int @default(0)
+
+  // Traffic source breakdown (stored as JSON for flexibility)
+  trafficSources Json? // { "direct": 10, "google": 5, "facebook": 3 }
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Unique constraint for date + page combination
+  @@unique([date, pagePath])
+  @@index([date])
+  @@index([pagePath])
+  @@index([pageType])
+  @@index([date, pageType])
+  @@map("analytics_daily_summary")
+}
+
+// ============================================
+// NOTIFICATION TYPE ENUM
+// ============================================
+
+enum NotificationType {
+  NEW_ORDER
+  NEW_USER
+  NEW_INQUIRY
+  NEW_REVIEW
+  LOW_STOCK
+  ORDER_STATUS
+  MILESTONE_REVENUE
+  MILESTONE_USERS
+  MILESTONE_ORDERS
+  MILESTONE_VISITS
+  SYSTEM
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+// ============================================
+// ADMIN NOTIFICATION MODEL
+// ============================================
+
+model AdminNotification {
+  id          String   @id @default(cuid())
+
+  // Notification content
+  type        NotificationType
+  title       String
+  message     String   @db.Text
+  priority    NotificationPriority @default(NORMAL)
+
+  // Related entity (optional)
+  entityType  String?  // "order", "user", "inquiry", "review", "product"
+  entityId    String?  // ID of the related entity
+
+  // Action URL (where to navigate when clicked)
+  actionUrl   String?
+
+  // Metadata (for milestone details, extra info)
+  metadata    Json?
+
+  // Status
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+
+  // Indexes
+  @@index([type])
+  @@index([isRead])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([isRead, createdAt])
+  @@index([type, isRead])
+  @@map("admin_notifications")
+}
+
+// ============================================
+// MILESTONE TRACKER MODEL
+// ============================================
+
+model MilestoneTracker {
+  id            String   @id @default(cuid())
+
+  // Milestone type
+  type          String   // "revenue", "users", "orders", "visits"
+  period        String   // "daily", "weekly", "monthly", "yearly", "all_time"
+
+  // Current value and milestone
+  currentValue  Decimal  @db.Decimal(15, 2)
+  lastMilestone Decimal  @db.Decimal(15, 2) @default(0)
+
+  // Period tracking
+  periodStart   DateTime
+  periodEnd     DateTime?
+
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Unique constraint
+  @@unique([type, period])
+  @@index([type])
+  @@index([period])
+  @@map("milestone_trackers")
+}
+
+// ============================================
+// HERO BANNER LOCATION ENUM
+// ============================================
+
+enum HeroLocation {
+  HOME
+  PREBUILT_PC
+}
+
+// ============================================
+// HERO BANNER MODEL
+// ============================================
+
+model HeroBanner {
+  id          String   @id @default(cuid())
+
+  // Location (home or prebuilt-pc page)
+  location    HeroLocation
+
+  // Banner content
+  title       String
+  subtitle    String?  @db.Text
+  description String?  @db.Text
+
+  // Images
+  imageUrl    String?  // Main banner image
+  mobileImageUrl String? // Mobile version
+
+  // CTA Button
+  buttonText  String?
+  buttonLink  String?
+
+  // Styling
+  textColor   String?  @default("#ffffff")
+  overlayColor String? @default("rgba(0,0,0,0.5)")
+  textAlign   String?  @default("left") // left, center, right
+
+  // Badge/Tag
+  badgeText   String?  // e.g., "New", "Sale", "Limited"
+  badgeColor  String?  @default("#ef4444")
+
+  // Scheduling
+  startDate   DateTime?
+  endDate     DateTime?
+
+  // Status
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([location])
+  @@index([isActive])
+  @@index([location, isActive])
+  @@index([sortOrder])
+  @@map("hero_banners")
+}
+
+// ============================================
+// ADVERTISEMENT TYPE ENUM
+// ============================================
+
+enum AdType {
+  COUPON
+  PRODUCT
+  CATEGORY
+  PREBUILT_PC
+  BLOG
+  SOCIAL_VIDEO
+  CUSTOM
+}
+
+enum AdPosition {
+  SIDEBAR
+  BANNER_TOP
+  BANNER_BOTTOM
+  POPUP
+  INLINE
+}
+
+// ============================================
+// ADVERTISEMENT MODEL
+// ============================================
+
+model Advertisement {
+  id          String   @id @default(cuid())
+
+  // Basic Info
+  name        String   // Internal name for admin
+  title       String   // Display title
+  description String?  @db.Text
+
+  // Ad Type and Reference
+  adType      AdType
+
+  // Reference IDs (based on adType)
+  couponId    String?
+  productId   String?
+  categoryId  String?
+  prebuiltPCId String?
+  blogId      String?
+  socialVideoId String?
+
+  // Custom link (for CUSTOM type)
+  customLink  String?
+
+  // Visual
+  imageUrl    String?
+  backgroundColor String? @default("#f3f4f6")
+  textColor   String?  @default("#000000")
+  accentColor String?  @default("#3b82f6")
+
+  // Position & Display
+  position    AdPosition @default(SIDEBAR)
+
+  // Pages to show on (empty = all pages)
+  showOnPages String?  @db.Text // JSON array: ["home", "products", "category", "product-detail", "cart", "checkout"]
+
+  // CTA
+  buttonText  String?  @default("Shop Now")
+
+  // Scheduling
+  startDate   DateTime?
+  endDate     DateTime?
+
+  // Priority & Status
+  priority    Int      @default(0) // Higher = shown first
+  isActive    Boolean  @default(true)
+
+  // Stats
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  coupon      Coupon?     @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  product     Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  prebuiltPC  PrebuiltPC? @relation(fields: [prebuiltPCId], references: [id], onDelete: SetNull)
+  blog        Blog?       @relation(fields: [blogId], references: [id], onDelete: SetNull)
+  socialVideo SocialVideo? @relation(fields: [socialVideoId], references: [id], onDelete: SetNull)
+
+  @@index([adType])
+  @@index([position])
+  @@index([isActive])
+  @@index([priority])
+  @@index([isActive, position])
+  @@map("advertisements")
+}
