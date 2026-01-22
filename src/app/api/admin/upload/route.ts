@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-import { existsSync } from "fs";
+import { v2 as cloudinary } from "cloudinary";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/svg+xml", "image/webp"];
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,27 +43,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const randomStr = Math.random().toString(36).substring(2, 8);
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const filename = `${timestamp}-${randomStr}.${ext}`;
-
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
-    }
-
-    // Save file
+    // Convert file to base64 for Cloudinary upload
     const buffer = Buffer.from(await file.arrayBuffer());
-    const filePath = path.join(uploadDir, filename);
-    await writeFile(filePath, buffer);
+    const base64File = `data:${file.type};base64,${buffer.toString("base64")}`;
 
-    // Return the public URL
-    const url = `/uploads/${folder}/${filename}`;
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(base64File, {
+      folder: `sai-computers/${folder}`,
+      resource_type: "auto",
+    });
 
-    return NextResponse.json({ url, filename });
+    // Return the Cloudinary URL
+    return NextResponse.json({
+      url: result.secure_url,
+      filename: result.public_id
+    });
   } catch (error) {
     console.error("Error uploading file:", error);
     return NextResponse.json(
