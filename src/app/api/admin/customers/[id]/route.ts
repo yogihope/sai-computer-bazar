@@ -63,7 +63,7 @@ export async function GET(
     const orderTotals = await prisma.order.aggregate({
       where: {
         userId: id,
-        paymentStatus: { in: ["PAID", "COD_PENDING"] },
+        paymentStatus: { in: ["PAID", "PENDING"] },
       },
       _sum: { total: true },
     });

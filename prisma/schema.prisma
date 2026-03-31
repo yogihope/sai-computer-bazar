@@ -173,7 +173,9 @@ model Product {
   shortDescription String?           @db.VarChar(200)
   description      String?           @db.Text
   sku              String?           @unique
-  price            Decimal           @db.Decimal(10, 2)
+  price            Decimal           @db.Decimal(10, 2)  // Keep for backward compatibility
+  upiPrice         Decimal?          @db.Decimal(10, 2)  // Price for UPI payments
+  creditCardPrice  Decimal?          @db.Decimal(10, 2)  // Price for Credit Card payments
   compareAtPrice   Decimal?          @db.Decimal(10, 2)
   discountPrice    Decimal?          @db.Decimal(10, 2)
   stockQuantity    Int               @default(0)
@@ -198,6 +200,16 @@ model Product {
 
   // Has variations
   hasVariations Boolean @default(false)
+
+  // Product Features (per-product trust badges)
+  warrantyTitle    String? @db.VarChar(100)
+  warrantySubtitle String? @db.VarChar(100)
+  deliveryTitle    String? @db.VarChar(100)
+  deliverySubtitle String? @db.VarChar(100)
+  returnsTitle     String? @db.VarChar(100)
+  returnsSubtitle  String? @db.VarChar(100)
+  supportTitle     String? @db.VarChar(100)
+  supportSubtitle  String? @db.VarChar(100)
 
   // SEO Fields
   seoTitle           String? @db.VarChar(70)
@@ -435,9 +447,11 @@ model PrebuiltPC {
   specifications   String?           @db.Text // Rich text for specs
 
   // Pricing
-  totalPrice     Decimal  @db.Decimal(10, 2) // Sum of all products (calculated)
-  sellingPrice   Decimal  @db.Decimal(10, 2) // Actual selling price (discounted)
-  compareAtPrice Decimal? @db.Decimal(10, 2) // Strike-through price
+  totalPrice      Decimal  @db.Decimal(10, 2) // Sum of all products (calculated)
+  sellingPrice    Decimal  @db.Decimal(10, 2) // Actual selling price (keep for backward compatibility)
+  upiPrice        Decimal? @db.Decimal(10, 2) // Price for UPI payments
+  creditCardPrice Decimal? @db.Decimal(10, 2) // Price for Credit Card payments
+  compareAtPrice  Decimal? @db.Decimal(10, 2) // Strike-through price
 
   // Images
   primaryImage   String?
@@ -891,16 +905,11 @@ enum PaymentStatus {
   PAID
   FAILED
   REFUNDED
-  COD_PENDING
 }
 
 enum PaymentMethod {
-  COD
-  RAZORPAY
   UPI
-  CARD
-  NETBANKING
-  WALLET
+  CREDIT_CARD
 }
 
 // ============================================
@@ -915,7 +924,7 @@ model Order {
   // Order Status
   status        OrderStatus   @default(PENDING)
   paymentStatus PaymentStatus @default(PENDING)
-  paymentMethod PaymentMethod @default(COD)
+  paymentMethod PaymentMethod @default(UPI)
 
   // Pricing
   subtotal       Decimal @db.Decimal(10, 2)

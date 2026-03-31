@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         },
         orders: {
           where: {
-            paymentStatus: { in: ["PAID", "COD_PENDING"] },
+            paymentStatus: { in: ["PAID", "PENDING"] },
           },
           select: {
             total: true,
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
     // Get total orders and revenue from customers
     const orderStats = await prisma.order.aggregate({
       where: {
-        paymentStatus: { in: ["PAID", "COD_PENDING"] },
+        paymentStatus: { in: ["PAID", "PENDING"] },
       },
       _count: { id: true },
       _sum: { total: true },

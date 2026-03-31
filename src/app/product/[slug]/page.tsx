@@ -76,6 +76,14 @@ interface Product {
   badges: { badge: { id: string; name: string; slug: string; color: string } }[];
   specs: { id: string; key: string; value: string }[];
   variations: { id: string; name: string; type: string; price: string | null; isInStock: boolean }[];
+  warrantyTitle: string | null;
+  warrantySubtitle: string | null;
+  deliveryTitle: string | null;
+  deliverySubtitle: string | null;
+  returnsTitle: string | null;
+  returnsSubtitle: string | null;
+  supportTitle: string | null;
+  supportSubtitle: string | null;
 }
 
 interface RelatedProduct {
@@ -761,19 +769,31 @@ export default function ProductPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
                   <Shield className="w-5 h-5 text-primary" />
-                  <div><p className="font-medium text-sm">1 Year Warranty</p><p className="text-xs text-muted-foreground">Full coverage</p></div>
+                  <div>
+                    <p className="font-medium text-sm">{product.warrantyTitle || "1 Year Warranty"}</p>
+                    <p className="text-xs text-muted-foreground">{product.warrantySubtitle || "Full coverage"}</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
                   <Truck className="w-5 h-5 text-primary" />
-                  <div><p className="font-medium text-sm">Free Delivery</p><p className="text-xs text-muted-foreground">Pan India</p></div>
+                  <div>
+                    <p className="font-medium text-sm">{product.deliveryTitle || "Free Delivery"}</p>
+                    <p className="text-xs text-muted-foreground">{product.deliverySubtitle || "Pan India"}</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
                   <RotateCcw className="w-5 h-5 text-primary" />
-                  <div><p className="font-medium text-sm">7-Day Returns</p><p className="text-xs text-muted-foreground">Easy returns</p></div>
+                  <div>
+                    <p className="font-medium text-sm">{product.returnsTitle || "7-Day Returns"}</p>
+                    <p className="text-xs text-muted-foreground">{product.returnsSubtitle || "Easy returns"}</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
                   <Headphones className="w-5 h-5 text-primary" />
-                  <div><p className="font-medium text-sm">Expert Support</p><p className="text-xs text-muted-foreground">24/7 available</p></div>
+                  <div>
+                    <p className="font-medium text-sm">{product.supportTitle || "Expert Support"}</p>
+                    <p className="text-xs text-muted-foreground">{product.supportSubtitle || "24/7 available"}</p>
+                  </div>
                 </div>
               </div>
             </div>

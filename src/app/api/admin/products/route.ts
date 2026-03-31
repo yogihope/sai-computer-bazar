@@ -134,6 +134,8 @@ export async function POST(request: NextRequest) {
       description,
       sku,
       price,
+      upiPrice,
+      creditCardPrice,
       compareAtPrice,
       discountPrice,
       stockQuantity,
@@ -148,6 +150,14 @@ export async function POST(request: NextRequest) {
       isComingSoon,
       launchDate,
       hasVariations,
+      warrantyTitle,
+      warrantySubtitle,
+      deliveryTitle,
+      deliverySubtitle,
+      returnsTitle,
+      returnsSubtitle,
+      supportTitle,
+      supportSubtitle,
       seoTitle,
       seoDescription,
       seoKeywords,
@@ -169,9 +179,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!name || !slug || !primaryCategoryId || price === undefined) {
+    if (!name || !slug || !primaryCategoryId || price === undefined || upiPrice === undefined || creditCardPrice === undefined) {
       return NextResponse.json(
-        { error: "Name, slug, category, and price are required" },
+        { error: "Name, slug, category, price, UPI price, and Credit Card price are required" },
         { status: 400 }
       );
     }
@@ -211,6 +221,8 @@ export async function POST(request: NextRequest) {
         description,
         sku,
         price,
+        upiPrice,
+        creditCardPrice,
         compareAtPrice,
         discountPrice,
         stockQuantity: stockQuantity || 0,
@@ -224,6 +236,14 @@ export async function POST(request: NextRequest) {
         isComingSoon: isComingSoon ?? false,
         launchDate: launchDate ? new Date(launchDate) : null,
         hasVariations: hasVariations ?? false,
+        warrantyTitle: warrantyTitle || null,
+        warrantySubtitle: warrantySubtitle || null,
+        deliveryTitle: deliveryTitle || null,
+        deliverySubtitle: deliverySubtitle || null,
+        returnsTitle: returnsTitle || null,
+        returnsSubtitle: returnsSubtitle || null,
+        supportTitle: supportTitle || null,
+        supportSubtitle: supportSubtitle || null,
         seoTitle,
         seoDescription,
         seoKeywords,

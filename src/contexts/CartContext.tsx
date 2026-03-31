@@ -19,6 +19,27 @@ interface CartItem {
   total: number;
   isInStock: boolean;
   stockQuantity: number;
+  product?: {
+    id: string;
+    name: string;
+    slug: string;
+    price: number;
+    upiPrice: number | null;
+    creditCardPrice: number | null;
+    compareAtPrice: number | null;
+    isInStock: boolean;
+    stockQuantity: number;
+  } | null;
+  prebuiltPC?: {
+    id: string;
+    name: string;
+    slug: string;
+    sellingPrice: number;
+    upiPrice: number | null;
+    creditCardPrice: number | null;
+    compareAtPrice: number | null;
+    isInStock: boolean;
+  } | null;
 }
 
 interface Cart {

@@ -44,6 +44,7 @@ import {
   Upload,
   CheckCircle2,
   XCircle,
+  Shield,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -146,6 +147,8 @@ export default function ProductCreatePage() {
 
   // Pricing & Stock
   const [price, setPrice] = useState("");
+  const [upiPrice, setUpiPrice] = useState("");
+  const [creditCardPrice, setCreditCardPrice] = useState("");
   const [compareAtPrice, setCompareAtPrice] = useState("");
   const [stockQuantity, setStockQuantity] = useState(0);
   const [isInStock, setIsInStock] = useState(true);
@@ -170,6 +173,16 @@ export default function ProductCreatePage() {
 
   // Specs
   const [specs, setSpecs] = useState<{ key: string; value: string }[]>([]);
+
+  // Product Features
+  const [warrantyTitle, setWarrantyTitle] = useState("1 Year Warranty");
+  const [warrantySubtitle, setWarrantySubtitle] = useState("Full coverage");
+  const [deliveryTitle, setDeliveryTitle] = useState("Free Delivery");
+  const [deliverySubtitle, setDeliverySubtitle] = useState("Pan India");
+  const [returnsTitle, setReturnsTitle] = useState("7-Day Returns");
+  const [returnsSubtitle, setReturnsSubtitle] = useState("Easy returns");
+  const [supportTitle, setSupportTitle] = useState("Expert Support");
+  const [supportSubtitle, setSupportSubtitle] = useState("24/7 available");
 
   // Variations
   const [hasVariations, setHasVariations] = useState(false);
@@ -438,8 +451,8 @@ export default function ProductCreatePage() {
   };
 
   const handleSave = async (saveStatus: "DRAFT" | "PUBLISHED") => {
-    if (!name || !slug || !primaryCategoryId || !price) {
-      toast({ title: "Error", description: "Name, slug, category, and price are required", variant: "destructive" });
+    if (!name || !slug || !primaryCategoryId || !price || !upiPrice || !creditCardPrice) {
+      toast({ title: "Error", description: "Name, slug, category, price, UPI price, and Credit Card price are required", variant: "destructive" });
       return;
     }
 
@@ -466,6 +479,8 @@ export default function ProductCreatePage() {
           description: description || null,
           sku: sku || null,
           price: parseFloat(price),
+          upiPrice: parseFloat(upiPrice),
+          creditCardPrice: parseFloat(creditCardPrice),
           compareAtPrice: compareAtPrice ? parseFloat(compareAtPrice) : null,
           stockQuantity,
           isInStock,
@@ -479,6 +494,10 @@ export default function ProductCreatePage() {
           isComingSoon,
           launchDate: launchDate ? new Date(launchDate).toISOString() : null,
           hasVariations,
+          warrantyTitle: warrantyTitle || null, warrantySubtitle: warrantySubtitle || null,
+          deliveryTitle: deliveryTitle || null, deliverySubtitle: deliverySubtitle || null,
+          returnsTitle: returnsTitle || null, returnsSubtitle: returnsSubtitle || null,
+          supportTitle: supportTitle || null, supportSubtitle: supportSubtitle || null,
           seoTitle: seoTitle || null,
           seoDescription: seoDescription || null,
           seoKeywords: seoKeywords || null,
@@ -593,24 +612,70 @@ export default function ProductCreatePage() {
           {/* Pricing & Stock */}
           <div className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4">Pricing & Stock</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <Label htmlFor="price">Price (Rs.) *</Label>
-                <Input id="price" type="number" placeholder="0" className="mt-1.5" value={price} onChange={(e) => setPrice(e.target.value)} />
-              </div>
-              <div>
-                <Label htmlFor="compare">Compare Price (Rs.)</Label>
-                <Input id="compare" type="number" placeholder="0" className="mt-1.5" value={compareAtPrice} onChange={(e) => setCompareAtPrice(e.target.value)} />
-              </div>
-              <div>
-                <Label htmlFor="stock">Stock</Label>
-                <Input id="stock" type="number" placeholder="0" className="mt-1.5" value={stockQuantity} onChange={(e) => setStockQuantity(parseInt(e.target.value) || 0)} />
-              </div>
-              <div className="flex items-end pb-2">
-                <div className="flex items-center gap-2">
-                  <Switch checked={isInStock} onCheckedChange={setIsInStock} />
-                  <Label>In Stock</Label>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="price">Sale Price (Rs.) *</Label>
+                  <Input id="price" type="number" placeholder="0" className="mt-1.5" value={price} onChange={(e) => setPrice(e.target.value)} />
+                  <p className="text-xs text-muted-foreground mt-1">Actual selling price shown</p>
                 </div>
+                <div>
+                  <Label htmlFor="upiPrice">UPI Price (Rs.) *</Label>
+                  <Input id="upiPrice" type="number" placeholder="0" className="mt-1.5" value={upiPrice} onChange={(e) => setUpiPrice(e.target.value)} />
+                  <p className="text-xs text-muted-foreground mt-1">Price for UPI payments</p>
+                </div>
+                <div>
+                  <Label htmlFor="creditCardPrice">Credit Card Price (Rs.) *</Label>
+                  <Input id="creditCardPrice" type="number" placeholder="0" className="mt-1.5" value={creditCardPrice} onChange={(e) => setCreditCardPrice(e.target.value)} />
+                  <p className="text-xs text-muted-foreground mt-1">Price for card payments</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="compare">MRP / Actual Price (Rs.)</Label>
+                  <Input id="compare" type="number" placeholder="0" className="mt-1.5" value={compareAtPrice} onChange={(e) => setCompareAtPrice(e.target.value)} />
+                  <p className="text-xs text-muted-foreground mt-1">Original price (shown as strikethrough)</p>
+                </div>
+                <div>
+                  <Label htmlFor="stock">Stock</Label>
+                  <Input id="stock" type="number" placeholder="0" className="mt-1.5" value={stockQuantity} onChange={(e) => setStockQuantity(parseInt(e.target.value) || 0)} />
+                </div>
+                <div className="flex items-end pb-2">
+                  <div className="flex items-center gap-2">
+                    <Switch checked={isInStock} onCheckedChange={setIsInStock} />
+                    <Label>In Stock</Label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Product Features */}
+          <div className="bg-card/50 backdrop-blur-xl border border-border/50 rounded-xl p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Shield className="w-5 h-5" /> Product Features
+              <span className="text-xs text-muted-foreground font-normal ml-2">Shown as trust badges on product page</span>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-muted/30 rounded-xl space-y-2">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Warranty</Label>
+                <Input placeholder="e.g. 1 Year Warranty" value={warrantyTitle} onChange={(e) => setWarrantyTitle(e.target.value)} />
+                <Input placeholder="e.g. Full coverage" value={warrantySubtitle} onChange={(e) => setWarrantySubtitle(e.target.value)} />
+              </div>
+              <div className="p-4 bg-muted/30 rounded-xl space-y-2">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Delivery</Label>
+                <Input placeholder="e.g. Free Delivery" value={deliveryTitle} onChange={(e) => setDeliveryTitle(e.target.value)} />
+                <Input placeholder="e.g. Pan India" value={deliverySubtitle} onChange={(e) => setDeliverySubtitle(e.target.value)} />
+              </div>
+              <div className="p-4 bg-muted/30 rounded-xl space-y-2">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Returns</Label>
+                <Input placeholder="e.g. 7-Day Returns" value={returnsTitle} onChange={(e) => setReturnsTitle(e.target.value)} />
+                <Input placeholder="e.g. Easy returns" value={returnsSubtitle} onChange={(e) => setReturnsSubtitle(e.target.value)} />
+              </div>
+              <div className="p-4 bg-muted/30 rounded-xl space-y-2">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Support</Label>
+                <Input placeholder="e.g. Expert Support" value={supportTitle} onChange={(e) => setSupportTitle(e.target.value)} />
+                <Input placeholder="e.g. 24/7 available" value={supportSubtitle} onChange={(e) => setSupportSubtitle(e.target.value)} />
               </div>
             </div>
           </div>
