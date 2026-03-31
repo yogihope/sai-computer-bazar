@@ -148,6 +148,8 @@ export default function EditPrebuiltPCPage({ params }: { params: { id: string } 
 
   // Pricing
   const [sellingPrice, setSellingPrice] = useState<number>(0);
+  const [upiPrice, setUpiPrice] = useState<number>(0);
+  const [creditCardPrice, setCreditCardPrice] = useState<number>(0);
   const [compareAtPrice, setCompareAtPrice] = useState<number | null>(null);
 
   // Images
@@ -249,6 +251,8 @@ export default function EditPrebuiltPCPage({ params }: { params: { id: string } 
         setSelectedPcTypeId(pc.pcTypeId || pc.pcType?.id || "");
         setTargetUse(pc.targetUse || "");
         setSellingPrice(parseFloat(pc.sellingPrice) || 0);
+        setUpiPrice(parseFloat(pc.upiPrice) || 0);
+        setCreditCardPrice(parseFloat(pc.creditCardPrice) || 0);
         setCompareAtPrice(pc.compareAtPrice ? parseFloat(pc.compareAtPrice) : null);
         setPrimaryImage({ url: pc.primaryImage || "", alt: "" });
         setGalleryImages(Array.isArray(pc.galleryImages) ? pc.galleryImages : []);
@@ -502,6 +506,10 @@ export default function EditPrebuiltPCPage({ params }: { params: { id: string } 
       toast({ title: "Error", description: "Add at least one component", variant: "destructive" });
       return;
     }
+    if (!upiPrice || !creditCardPrice) {
+      toast({ title: "Error", description: "UPI Price and Credit Card Price are required", variant: "destructive" });
+      return;
+    }
 
     try {
       setSaving(true);
@@ -510,7 +518,7 @@ export default function EditPrebuiltPCPage({ params }: { params: { id: string } 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name, slug, shortDescription, description, specifications, totalPrice,
-          sellingPrice: sellingPrice || totalPrice, compareAtPrice,
+          sellingPrice: sellingPrice || totalPrice, upiPrice, creditCardPrice, compareAtPrice,
           primaryImage: primaryImage.url || null,
           galleryImages: galleryImages.length > 0 ? galleryImages : null,
           status, visibility, isFeatured, isInStock,
@@ -723,7 +731,9 @@ export default function EditPrebuiltPCPage({ params }: { params: { id: string } 
               <div className="flex items-center justify-between mb-2"><span className="text-sm text-muted-foreground">Components Total</span><span className="text-lg font-semibold">₹{totalPrice.toLocaleString("en-IN")}</span></div>
               <p className="text-xs text-muted-foreground">Sum of {components.length} component(s)</p>
             </div>
-            <div className="space-y-2"><Label>Selling Price *</Label><div className="relative"><IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input type="number" className="pl-9" value={sellingPrice || ""} onChange={(e) => setSellingPrice(parseFloat(e.target.value) || 0)} /></div></div>
+            <div className="space-y-2"><Label>Selling Price *</Label><div className="relative"><IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input type="number" className="pl-9" value={sellingPrice || ""} onChange={(e) => setSellingPrice(parseFloat(e.target.value) || 0)} /></div><p className="text-xs text-muted-foreground">For display reference</p></div>
+            <div className="space-y-2"><Label>UPI Price *</Label><div className="relative"><IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input type="number" className="pl-9" value={upiPrice || ""} onChange={(e) => setUpiPrice(parseFloat(e.target.value) || 0)} /></div><p className="text-xs text-muted-foreground">Price for UPI payments</p></div>
+            <div className="space-y-2"><Label>Credit Card Price *</Label><div className="relative"><IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input type="number" className="pl-9" value={creditCardPrice || ""} onChange={(e) => setCreditCardPrice(parseFloat(e.target.value) || 0)} /></div><p className="text-xs text-muted-foreground">Price for card payments</p></div>
             <div className="space-y-2"><Label>Compare at Price</Label><div className="relative"><IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" /><Input type="number" className="pl-9" value={compareAtPrice || ""} onChange={(e) => setCompareAtPrice(parseFloat(e.target.value) || null)} /></div></div>
             {totalPrice > 0 && sellingPrice > 0 && sellingPrice < totalPrice && (
               <div className="p-4 bg-emerald-500/10 rounded-lg border border-emerald-500/20">

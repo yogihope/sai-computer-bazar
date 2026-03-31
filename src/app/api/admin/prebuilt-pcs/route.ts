@@ -113,6 +113,8 @@ export async function POST(request: NextRequest) {
       specifications,
       totalPrice,
       sellingPrice,
+      upiPrice,
+      creditCardPrice,
       compareAtPrice,
       primaryImage,
       galleryImages,
@@ -144,9 +146,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!name || !slug || totalPrice === undefined || sellingPrice === undefined) {
+    if (!name || !slug || totalPrice === undefined || sellingPrice === undefined || upiPrice === undefined || creditCardPrice === undefined) {
       return NextResponse.json(
-        { error: "Name, slug, total price, and selling price are required" },
+        { error: "Name, slug, total price, selling price, UPI price, and Credit Card price are required" },
         { status: 400 }
       );
     }
@@ -173,6 +175,8 @@ export async function POST(request: NextRequest) {
         specifications,
         totalPrice,
         sellingPrice,
+        upiPrice,
+        creditCardPrice,
         compareAtPrice,
         primaryImage,
         galleryImages,

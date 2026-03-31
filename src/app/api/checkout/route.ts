@@ -62,7 +62,14 @@ export async function POST(request: NextRequest) {
         if (!product.isInStock || product.stockQuantity < item.quantity) {
           return NextResponse.json({ error: `${product.name} is out of stock` }, { status: 400 });
         }
-        price = Number(product.price);
+        // Use UPI or Credit Card price based on payment method
+        if (paymentMethod === "UPI") {
+          price = Number(product.upiPrice) || Number(product.price);
+        } else if (paymentMethod === "CREDIT_CARD") {
+          price = Number(product.creditCardPrice) || Number(product.price);
+        } else {
+          price = Number(product.price);
+        }
         name = product.name;
         sku = product.sku || "";
         image = product.images[0]?.url || "";
@@ -76,7 +83,14 @@ export async function POST(request: NextRequest) {
         if (!prebuiltPC.isInStock) {
           return NextResponse.json({ error: `${prebuiltPC.name} is out of stock` }, { status: 400 });
         }
-        price = Number(prebuiltPC.sellingPrice);
+        // Use UPI or Credit Card price based on payment method
+        if (paymentMethod === "UPI") {
+          price = Number(prebuiltPC.upiPrice) || Number(prebuiltPC.sellingPrice);
+        } else if (paymentMethod === "CREDIT_CARD") {
+          price = Number(prebuiltPC.creditCardPrice) || Number(prebuiltPC.sellingPrice);
+        } else {
+          price = Number(prebuiltPC.sellingPrice);
+        }
         name = prebuiltPC.name;
         sku = prebuiltPC.slug;
         image = prebuiltPC.primaryImage || "";
@@ -145,7 +159,7 @@ export async function POST(request: NextRequest) {
         orderNumber,
         userId: user?.id || null,
         status: "PENDING",
-        paymentStatus: paymentMethod === "COD" ? "COD_PENDING" : "PENDING",
+        paymentStatus: "PENDING",
         paymentMethod: paymentMethod as any,
         subtotal,
         discount: couponDiscount,
@@ -188,9 +202,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // If payment method is Razorpay, create Razorpay order
+    // If payment method is Credit Card, create Razorpay order
     let razorpayOrder = null;
-    if (paymentMethod === "RAZORPAY") {
+    if (paymentMethod === "CREDIT_CARD") {
       const razorpayResult = await createRazorpayOrder(
         total,
         "INR",
@@ -219,34 +233,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If COD, confirm the order immediately
-    if (paymentMethod === "COD") {
-      await prisma.order.update({
-        where: { id: order.id },
-        data: { status: "CONFIRMED" },
-      });
-
-      await prisma.orderTimeline.create({
-        data: {
-          orderId: order.id,
-          status: "CONFIRMED",
-          title: "Order Confirmed",
-          description: "Your COD order has been confirmed",
-        },
-      });
-
-      // Reduce stock for products
-      for (const item of orderItems) {
-        if (item.productId) {
-          await prisma.product.update({
-            where: { id: item.productId },
-            data: {
-              stockQuantity: { decrement: item.quantity },
-            },
-          });
-        }
-      }
-    }
+    // Note: For UPI, order remains PENDING until payment is confirmed
+    // For CREDIT_CARD, payment will be verified through Razorpay webhook/verification
 
     // Clear cart after successful order
     if (user?.id) {

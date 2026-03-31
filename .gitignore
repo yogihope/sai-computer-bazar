@@ -33,3 +33,4 @@ out
 *.sw?
 
 /generated/prisma
+.vercel

@@ -162,6 +162,8 @@ export default function CreatePrebuiltPCPage() {
 
   // Pricing
   const [sellingPrice, setSellingPrice] = useState<number>(0);
+  const [upiPrice, setUpiPrice] = useState<number>(0);
+  const [creditCardPrice, setCreditCardPrice] = useState<number>(0);
   const [compareAtPrice, setCompareAtPrice] = useState<number | null>(null);
 
   // Images
@@ -496,6 +498,10 @@ export default function CreatePrebuiltPCPage() {
       toast({ title: "Error", description: "Add at least one component", variant: "destructive" });
       return;
     }
+    if (!upiPrice || !creditCardPrice) {
+      toast({ title: "Error", description: "UPI Price and Credit Card Price are required", variant: "destructive" });
+      return;
+    }
 
     try {
       setSaving(true);
@@ -503,6 +509,8 @@ export default function CreatePrebuiltPCPage() {
         name, slug, shortDescription, description, specifications,
         totalPrice,
         sellingPrice: sellingPrice || totalPrice,
+        upiPrice,
+        creditCardPrice,
         compareAtPrice,
         primaryImage: primaryImage.url || null,
         galleryImages: galleryImages.length > 0 ? galleryImages : null,
@@ -849,6 +857,25 @@ export default function CreatePrebuiltPCPage() {
                 <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input type="number" className="pl-9" value={sellingPrice || ""} onChange={(e) => setSellingPrice(parseFloat(e.target.value) || 0)} />
               </div>
+              <p className="text-xs text-muted-foreground">For display reference</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>UPI Price *</Label>
+              <div className="relative">
+                <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input type="number" className="pl-9" value={upiPrice || ""} onChange={(e) => setUpiPrice(parseFloat(e.target.value) || 0)} />
+              </div>
+              <p className="text-xs text-muted-foreground">Price for UPI payments</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Credit Card Price *</Label>
+              <div className="relative">
+                <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input type="number" className="pl-9" value={creditCardPrice || ""} onChange={(e) => setCreditCardPrice(parseFloat(e.target.value) || 0)} />
+              </div>
+              <p className="text-xs text-muted-foreground">Price for card payments</p>
             </div>
 
             <div className="space-y-2">

@@ -54,7 +54,7 @@ export default function CheckoutContent() {
   // Form states
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState<string>("RAZORPAY");
+  const [paymentMethod, setPaymentMethod] = useState<string>("UPI");
   const [couponCode, setCouponCode] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponApplied, setCouponApplied] = useState(false);
@@ -126,8 +126,8 @@ export default function CheckoutContent() {
         body: JSON.stringify({
           pincode,
           weight: 2,
-          cod: paymentMethod === "COD",
-          cartTotal: cart?.subtotal || 0,
+          cod: false,
+          cartTotal: subtotal,
         }),
       });
       const data = await res.json();
@@ -285,16 +285,15 @@ export default function CheckoutContent() {
         return;
       }
 
-      // Handle COD
-      if (paymentMethod === "COD") {
-        // Immediately clear local cart state
-        resetCart();
-        router.push(`/order-success?orderNumber=${checkoutData.order.orderNumber}`);
+      // Handle UPI
+      if (paymentMethod === "UPI") {
+        // Redirect to UPI payment page with order details
+        router.push(`/upi-payment?orderNumber=${checkoutData.order.orderNumber}&orderId=${checkoutData.order.id}&amount=${total}`);
         return;
       }
 
-      // Handle Razorpay
-      if (paymentMethod === "RAZORPAY" && checkoutData.razorpay) {
+      // Handle Credit Card (Razorpay)
+      if (paymentMethod === "CREDIT_CARD" && checkoutData.razorpay) {
         const scriptLoaded = await loadRazorpayScript();
         if (!scriptLoaded) {
           toast.error("Failed to load payment gateway");
@@ -357,8 +356,34 @@ export default function CheckoutContent() {
     }
   };
 
-  // Calculations
-  const subtotal = cart?.subtotal || 0;
+  // Calculations - Dynamic pricing based on payment method
+  const calculateSubtotal = () => {
+    if (!cart?.items) return 0;
+
+    return cart.items.reduce((sum, item) => {
+      let itemPrice = 0;
+
+      if (item.product) {
+        // Use UPI or Credit Card price for products
+        if (paymentMethod === "UPI") {
+          itemPrice = Number(item.product.upiPrice) || Number(item.product.price) || 0;
+        } else {
+          itemPrice = Number(item.product.creditCardPrice) || Number(item.product.price) || 0;
+        }
+      } else if (item.prebuiltPC) {
+        // Use UPI or Credit Card price for prebuilt PCs
+        if (paymentMethod === "UPI") {
+          itemPrice = Number(item.prebuiltPC.upiPrice) || Number(item.prebuiltPC.sellingPrice) || 0;
+        } else {
+          itemPrice = Number(item.prebuiltPC.creditCardPrice) || Number(item.prebuiltPC.sellingPrice) || 0;
+        }
+      }
+
+      return sum + (itemPrice * item.quantity);
+    }, 0);
+  };
+
+  const subtotal = calculateSubtotal();
   const tax = Math.round((subtotal - couponDiscount) * 0.18 * 100) / 100;
   const total = subtotal - couponDiscount + shippingCharge + tax;
 
@@ -564,16 +589,19 @@ export default function CheckoutContent() {
                 <div className="grid gap-3">
                   <label
                     className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
-                      paymentMethod === "RAZORPAY"
+                      paymentMethod === "UPI"
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/50"
                     }`}
                   >
-                    <RadioGroupItem value="RAZORPAY" />
+                    <RadioGroupItem value="UPI" />
                     <div className="flex-1">
-                      <span className="font-medium">Pay Online</span>
+                      <span className="font-medium">UPI Payment</span>
                       <p className="text-sm text-muted-foreground">
-                        Credit/Debit Card, UPI, Net Banking, Wallets
+                        Pay via UPI - Lower price
+                      </p>
+                      <p className="text-xs text-primary font-semibold mt-1">
+                        Subtotal: ₹{formatPrice(subtotal)}
                       </p>
                     </div>
                     <Shield className="h-5 w-5 text-green-600" />
@@ -581,19 +609,22 @@ export default function CheckoutContent() {
 
                   <label
                     className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition-colors ${
-                      paymentMethod === "COD"
+                      paymentMethod === "CREDIT_CARD"
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/50"
                     }`}
                   >
-                    <RadioGroupItem value="COD" />
+                    <RadioGroupItem value="CREDIT_CARD" />
                     <div className="flex-1">
-                      <span className="font-medium">Cash on Delivery</span>
+                      <span className="font-medium">Credit/Debit Card</span>
                       <p className="text-sm text-muted-foreground">
-                        Pay when you receive your order
+                        Pay via Razorpay payment gateway
+                      </p>
+                      <p className="text-xs text-primary font-semibold mt-1">
+                        Subtotal: ₹{formatPrice(subtotal)}
                       </p>
                     </div>
-                    <Banknote className="h-5 w-5 text-muted-foreground" />
+                    <CreditCard className="h-5 w-5 text-muted-foreground" />
                   </label>
                 </div>
               </RadioGroup>
@@ -745,7 +776,7 @@ export default function CheckoutContent() {
                   </>
                 ) : (
                   <>
-                    {paymentMethod === "COD" ? "Place Order" : "Proceed to Pay"}
+                    {paymentMethod === "UPI" ? "Proceed to UPI Payment" : "Proceed to Pay"}
                     <ChevronRight className="h-4 w-4 ml-2" />
                   </>
                 )}
