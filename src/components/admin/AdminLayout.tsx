@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { AdminSidebar } from "./AdminSidebar";
+import { AIChatWidget } from "./AIChatWidget";
 import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,9 @@ const AdminLayoutContent = ({ children }: AdminLayoutProps) => {
           {children}
         </div>
       </main>
+
+      {/* AI floating chat assistant — available on every admin page */}
+      <AIChatWidget />
     </div>
   );
 };

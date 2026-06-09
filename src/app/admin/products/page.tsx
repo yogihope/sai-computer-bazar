@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { AdminTableWrapper } from "@/components/admin/AdminCard";
@@ -137,6 +137,15 @@ export default function ProductsPage() {
   useEffect(() => {
     fetchProducts();
   }, [searchQuery]);
+
+  // Refresh list when AI widget creates a product (no full page reload)
+  const fetchProductsRef = useRef(fetchProducts);
+  useEffect(() => { fetchProductsRef.current = fetchProducts; });
+  useEffect(() => {
+    const handler = () => fetchProductsRef.current();
+    window.addEventListener("scb:admin-data-updated", handler);
+    return () => window.removeEventListener("scb:admin-data-updated", handler);
+  }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {

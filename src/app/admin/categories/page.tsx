@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -108,6 +108,15 @@ export default function CategoriesPage() {
   useEffect(() => {
     fetchCategories();
   }, [searchQuery]);
+
+  // Refresh list when AI widget creates a category (no full page reload)
+  const fetchCategoriesRef = useRef(fetchCategories);
+  useEffect(() => { fetchCategoriesRef.current = fetchCategories; });
+  useEffect(() => {
+    const handler = () => fetchCategoriesRef.current();
+    window.addEventListener("scb:admin-data-updated", handler);
+    return () => window.removeEventListener("scb:admin-data-updated", handler);
+  }, []);
 
   const toggleVisibility = async (id: string, currentValue: boolean) => {
     try {

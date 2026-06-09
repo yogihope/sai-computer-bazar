@@ -186,29 +186,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if slug exists
-    const existingProduct = await prisma.product.findUnique({
-      where: { slug },
-    });
-
-    if (existingProduct) {
-      return NextResponse.json(
-        { error: "A product with this slug already exists" },
-        { status: 400 }
-      );
+    // Auto-deduplicate slug — append -2, -3, ... until unique
+    let finalSlug = slug;
+    let slugSuffix = 2;
+    while (await prisma.product.findUnique({ where: { slug: finalSlug } })) {
+      finalSlug = `${slug}-${slugSuffix++}`;
     }
 
-    // Check if SKU exists (if provided)
-    if (sku) {
-      const existingSku = await prisma.product.findUnique({
-        where: { sku },
-      });
-
-      if (existingSku) {
-        return NextResponse.json(
-          { error: "A product with this SKU already exists" },
-          { status: 400 }
-        );
+    // Auto-deduplicate SKU — append -2, -3, ... until unique
+    let finalSku: string | undefined = sku || undefined;
+    if (finalSku) {
+      let skuSuffix = 2;
+      const baseSku = finalSku;
+      while (await prisma.product.findUnique({ where: { sku: finalSku } })) {
+        finalSku = `${baseSku}-${skuSuffix++}`;
       }
     }
 
@@ -216,10 +207,10 @@ export async function POST(request: NextRequest) {
     const product = await prisma.product.create({
       data: {
         name,
-        slug,
+        slug: finalSlug,
         shortDescription,
         description,
-        sku,
+        sku: finalSku,
         price,
         upiPrice,
         creditCardPrice,
