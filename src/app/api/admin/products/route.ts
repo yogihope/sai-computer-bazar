@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         slug: finalSlug,
-        shortDescription,
+        shortDescription: shortDescription ? shortDescription.slice(0, 200) : shortDescription,
         description,
         sku: finalSku,
         price,

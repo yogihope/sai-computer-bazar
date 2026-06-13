@@ -155,7 +155,7 @@ export async function PUT(
       data: {
         name,
         slug,
-        shortDescription,
+        shortDescription: shortDescription ? shortDescription.slice(0, 200) : shortDescription,
         description,
         sku,
         price,
